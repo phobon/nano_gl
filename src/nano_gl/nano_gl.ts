@@ -244,9 +244,15 @@ export class Plane {
 }
 
 export class NanoGl {
+  private readonly _canvas: HTMLCanvasElement
+
   private readonly _gl: WebGLRenderingContext
   private readonly _program: WebGLProgram
   private readonly _plane: Plane
+
+  private readonly _timeScalar: number = 0.001
+  private _startTime: number = 0
+  private _previousElapsed: number = 0
 
   public uniforms: { [index: string]: Uniform } = {}
 
@@ -259,10 +265,13 @@ export class NanoGl {
       height?: number
       widthSegments?: number
       heightSegments?: number
+      timeScalar?: number
     },
   ) {
+    this._canvas = canvas
+
     // Initialise WebGL
-    const gl = canvas.getContext('webgl') as WebGLRenderingContext
+    const gl = this._canvas.getContext('webgl') as WebGLRenderingContext
     if (!gl) {
       throw new Error('WebGL not supported')
     }
@@ -288,8 +297,27 @@ export class NanoGl {
       heightSegments = 32,
       width = window?.innerWidth || canvas.width,
       height = window?.innerHeight || canvas.height,
+      timeScalar = 0.001,
     } = planeOptions || {}
     this._plane = this.addPlane(width, height, widthSegments, heightSegments)
+
+    this.initialise()
+  }
+
+  private initialise() {
+    // Create some standard uniforms for use in the shader
+    this.addUniform('resolution', UNIFORM.vec2)
+    this.addUniform('time', UNIFORM.float)
+
+    // Set up a listener on resize to update the canvas size
+    const resizeCanvas = () => {
+      const width = (this._canvas.width = window.innerWidth)
+      const height = (this._canvas.height = window.innerHeight)
+      this.updateUniform('resolution', width, height)
+      this.viewport(0, 0, width, height)
+    }
+    window.addEventListener('resize', resizeCanvas)
+    resizeCanvas()
   }
 
   private addShader(source: string, type: number) {
@@ -317,11 +345,21 @@ export class NanoGl {
     this._gl.viewport(x, y, width, height)
   }
 
-  public render() {
+  public render(elapsed: number = 0) {
     if (!this._plane) {
       return
     }
 
+    // Calculate frame delta time
+    const delta = elapsed - this._previousElapsed
+    this._previousElapsed = elapsed
+
+    // Update standard uniforms
+    const currentTime = this._startTime + delta * this._timeScalar
+    this._startTime = currentTime
+    this.updateUniform('time', this._startTime)
+
+    // Render the plane
     this._plane.render(this._gl)
   }
 
