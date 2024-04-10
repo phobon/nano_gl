@@ -299,6 +299,9 @@ export class NanoGl {
       height = window?.innerHeight || canvas.height,
       timeScalar = 0.001,
     } = planeOptions || {}
+
+    this._timeScalar = timeScalar
+
     this._plane = this.addPlane(width, height, widthSegments, heightSegments)
 
     this.initialise()
@@ -331,9 +334,14 @@ export class NanoGl {
     this._gl.attachShader(this._program, shader)
   }
 
-  public addUniform(name: string, suffix: string): Uniform {
+  public addUniform(name: string, suffix: string, initialValue?: any): Uniform {
     const uniform = new Uniform(this._gl, this._program, `u_${name}`, suffix)
     this.uniforms[name] = uniform
+
+    if (initialValue) {
+      this.updateUniform(name, initialValue)
+    }
+
     return uniform
   }
 
